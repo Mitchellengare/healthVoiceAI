@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+venv/
+.env
+
+# Node / npm
+node_modules/
+.npm/
+.npx/
+
+# OS / editor junk
+.DS_Store
+.vscode/
+*.log
+
+# Shell / system files
+.tcshrc
+.viminfo

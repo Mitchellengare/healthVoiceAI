@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthVoice AI - Medical Explanations for Everyone</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: white;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .tagline {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .access-methods {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .method {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            border: 1px solid #e9ecef;
+            transition: transform 0.3s ease;
+        }
+        
+        .method:hover {
+            transform: translateY(-5px);
+        }
+        
+        .method-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .method h3 {
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+        
+        .method p {
+            color: #4a5568;
+            margin-bottom: 1rem;
+        }
+        
+        .phone {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+        }
+        
+        .whatsapp {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+        }
+        
+        .demo-section {
+            background: #2d3748;
+            color: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .example-questions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        
+        .example {
+            background: rgba(255,255,255,0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .example:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .test-form {
+            margin-top: 2rem;
+        }
+        
+        .test-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .test-input:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+        
+        .test-button {
+            background: #48bb78;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            width: 100%;
+        }
+        
+        .test-button:hover {
+            background: #38a169;
+        }
+        
+        .response-box {
+            background: #012c49;
+            border: 1px solid #0366e7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            min-height: 100px;
+            display: none;
+        }
+        
+        .tech-stack {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+        
+        .tech-item {
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #4a5568;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: white;
+            opacity: 0.8;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>HealthVoice AI</h1>
+            <p class="tagline">Medical explanations in plain language, via phone or WhatsApp—no smartphone required.</p>
+        </header>
+        
+        <div class="card">
+            <h2>🚨 The Problem</h2>
+            <p>40% of elderly and low-income patients don't use smartphones regularly. They're left out of the healthcare AI revolution. Complex medical jargon creates confusion and poor health outcomes.</p>
+        </div>
+        
+        <div class="card">
+            <h2>💡 Our Solution</h2>
+            <p>HealthVoice AI bridges the digital divide by providing AI-powered medical explanations through the most accessible technologies: <strong>voice calls</strong> and <strong>WhatsApp/SMS</strong>.</p>
+            
+            <div class="access-methods">
+                <div class="method phone">
+                    <div class="method-icon">📞</div>
+                    <h3>Voice Call</h3>
+                    <p>Call our toll-free number, ask any medical question in plain language, get a clear explanation in response.</p>
+                    <p><strong>Toll-Free Number:</strong> [Your Twilio Number]</p>
+                </div>
+                
+                <div class="method whatsapp">
+                    <div class="method-icon">💬</div>
+                    <h3>WhatsApp / SMS</h3>
+                    <p>Text your question to our number, get a text explanation in return. Works on any mobile phone.</p>
+                    <p><strong>Text to:</strong> [Your Twilio Number]</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>🎧 Try It Out</h2>
+            <p>Ask a medical question below to see how HealthVoice AI responds:</p>
+            
+            <div class="example-questions">
+                <div class="example" onclick="fillQuestion('What does high cholesterol mean?')">
+                    "What does high cholesterol mean?"
+                </div>
+                <div class="example" onclick="fillQuestion('How should I take metformin?')">
+                    "How should I take metformin?"
+                </div>
+                <div class="example" onclick="fillQuestion('Explain my blood pressure reading')">
+                    "Explain my blood pressure reading"
+                </div>
+                <div class="example" onclick="fillQuestion('What is A1C test for diabetes?')">
+                    "What is A1C test for diabetes?"
+                </div>
+            </div>
+            
+            <div class="test-form">
+                <input type="text" class="test-input" id="questionInput" placeholder="Type your medical question here...">
+                <button class="test-button" onclick="testAI()">Get AI Explanation</button>
+                
+                <div class="response-box" id="responseBox">
+                    <div id="aiResponse"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🛡️ Safety Features</h2>
+            <ul style="list-style-position: inside; padding-left: 1rem;">
+                <li><strong>Emergency Detection:</strong> Recognizes keywords like "chest pain" and directs to call 911</li>
+                <li><strong>Medical Disclaimers:</strong> Clear reminders that AI is not a doctor</li>
+                <li><strong>HIPAA-aware:</strong> No personal health information stored</li>
+                <li><strong>Bias Mitigation:</strong> Carefully crafted prompts for equitable explanations</li>
+            </ul>
+        </div>
+        
+        <div class="tech-stack">
+            <div class="tech-item">Flask</div>
+            <div class="tech-item">Twilio</div>
+            <div class="tech-item">OpenAI GPT</div>
+            <div class="tech-item">Python</div>
+            <div class="tech-item">Whisper STT</div>
+        </div>
+        
+        <footer>
+            <p>Made with ❤️ for accessible healthcare | Class Project | HealthVoice AI 2026</p>
+        </footer>
+    </div>
+    
+    <script>
+        function fillQuestion(question) {
+            document.getElementById('questionInput').value = question;
+        }
+        
+        async function testAI() {
+  const question = document.getElementById('questionInput').value.trim();
+  const responseBox = document.getElementById('responseBox');
+  const aiResponse = document.getElementById('aiResponse');
+
+  if (!question) {
+    alert('Please enter a question');
+    return;
+  }
+
+  aiResponse.innerHTML = '<p>Thinking...</p>';
+  responseBox.style.display = 'block';
+
+  try {
+    const response = await fetch('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      aiResponse.innerHTML = `<p>⚠️ Error: ${data.error || 'Something went wrong'}</p>`;
+      return;
+    }
+
+    aiResponse.innerHTML = `
+      <p><strong>Question:</strong> "${data.question}"</p>
+      <p><strong>HealthVoice AI says:</strong></p>
+      <p>${String(data.answer).replace(/\n/g, '<br>')}</p>
+    `;
+  } catch (error) {
+    aiResponse.innerHTML = '<p>⚠️ Error: Could not connect to server.</p>';
+  }
+}
+
+        
+        // Auto-fill with first example on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            fillQuestion('What does high cholesterol mean?');
+        });
+    </script>
+</body>
+</html>
