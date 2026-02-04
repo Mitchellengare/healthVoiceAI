@@ -8,7 +8,7 @@
 ##  Solution
 HealthVoice AI provides AI-powered medical explanations through:
 - **Toll-free voice calls** (works on any phone)
-- **WhatsApp/SMS** (works on basic mobile phones)
+- **SMS** (works on basic mobile phones)
 - No app installation required
 - No smartphone needed
 
