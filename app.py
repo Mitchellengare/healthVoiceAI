@@ -5,205 +5,283 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 import logging
+import json
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize clients
-twilio_client = None  # We'll initialize only if credentials exist
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), max_retries=0)
 
+# ── Prompts ────────────────────────────────────────────────────────────────────
 
-# Medical safety keywords for emergency detection
-EMERGENCY_KEYWORDS = [
-    'chest pain', 'heart attack', 'stroke', 'can\'t breathe', 'difficulty breathing',
-    'severe bleeding', 'unconscious', 'suicide', 'kill myself', '911', 'emergency'
-]
+CLASSIFIER_PROMPT = """You are a classifier for a health education service used across Africa.
 
-# Medical disclaimer
-DISCLAIMER = "I am an AI health educator, not a doctor. This information is for educational purposes only. Always consult with a healthcare professional for medical advice."
+Given a user message, do THREE things:
+1. Detect if it is health/medical related (true) or not (false).
+2. Detect if it describes an emergency (life-threatening situation).
+3. If NOT health related, write a short polite refusal IN THE EXACT SAME LANGUAGE the user wrote in.
 
-# System prompt for GPT
-SYSTEM_PROMPT = """You are a compassionate, patient health educator named HealthVoice AI. 
-Your role is to explain medical terms, lab results, and medication instructions in simple, 
-clear language for someone with an 8th-grade reading level.
+An emergency includes: chest pain, difficulty breathing, severe bleeding, loss of consciousness, 
+stroke symptoms, poisoning, severe injury, suicidal intent — in ANY language.
+
+Health topics (is_health = true): symptoms, medications, lab results, diagnoses, medical terms, 
+mental health, nutrition related to illness, chronic conditions, maternal health, HIV, malaria, 
+tuberculosis, anything a doctor or pharmacist would discuss.
+
+NOT health (is_health = false): coding, technology, finance, entertainment, beauty/grooming, sports.
+
+Respond ONLY in this exact JSON format:
+{
+  "is_health": true or false,
+  "is_emergency": true or false,
+  "detected_language": "language name in English e.g. Swahili, Hausa, English, French",
+  "refusal_message": "polite refusal in user's language — only include this key if is_health is false"
+}"""
+
+SYSTEM_PROMPT = """You are HealthVoice AI, a compassionate health educator serving patients across Africa.
+
+Your ONLY role is to explain medical topics in simple, clear language.
+Always respond in the same language the user writes in — including Swahili, Hausa, Yoruba, 
+Amharic, Zulu, Somali, Wolof, Lingala, Shona, Igbo, Twi, Xhosa, French, Portuguese, Arabic, 
+or any other language or language mix.
+
+Health topics you cover:
+- Medications, dosages, and side effects
+- Lab results and what they mean
+- Symptoms and when to seek care
+- Maternal and child health
+- HIV, malaria, tuberculosis, typhoid, and other common conditions in Africa
+- Chronic conditions: diabetes, hypertension, sickle cell disease
+- Mental health
 
 Rules:
-1. Always be empathetic and calm
-2. Break down complex medical jargon into everyday language
-3. If explaining lab results, mention what's normal and when to worry
-4. If explaining medications, include how to take them and common side effects
-5. If you don't know something, say so and suggest consulting a doctor
-6. Always include this disclaimer at the end: "Remember: I'm an AI assistant for education, not a replacement for your doctor's advice."
+1. ONLY answer health/medical questions. If a question is not medical, politely refuse in the user's language.
+2. Use very simple language — as if explaining to someone with no medical background.
+3. Be culturally sensitive. If a patient mentions traditional or herbal remedies, acknowledge respectfully, then provide medical context.
+4. NEVER say "call 911". Instead say: "call your local emergency number or go to the nearest hospital immediately."
+5. If you don't know something, say so clearly and suggest seeing a doctor.
+6. End every response with: "This is health education only. Please see a doctor or nurse for personal medical advice."
+7. Keep responses under 300 words."""
 
-Language:
-- Default to English.
-- If the user explicitly asks for another language, reply in that language.
+EMERGENCY_RESPONSE_PROMPT = """The user has sent a message that may be a medical emergency. 
 
-Keep responses under 300 words. Speak slowly and clearly as if explaining to a grandparent."""
+Write a SHORT, CALM emergency response in the EXACT same language as the user's message.
+The response must:
+- Acknowledge what they said
+- Tell them to call their local emergency number or go to the nearest hospital immediately
+- Be under 50 words
+- NOT include any disclaimers or health education
 
-def is_emergency(user_input):
-    """Check if the user input contains emergency keywords"""
-    user_input_lower = user_input.lower()
-    for keyword in EMERGENCY_KEYWORDS:
-        if keyword in user_input_lower:
-            return True, keyword
-    return False, None
+User message: {user_input}
+Detected language: {language}"""
+
+
+def classify_message(user_input):
+    """
+    Classify the message in one GPT call.
+    Returns dict with: is_health, is_emergency, detected_language, refusal_message (optional)
+    """
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": CLASSIFIER_PROMPT},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=150,
+            temperature=0,
+            response_format={"type": "json_object"}
+        )
+        raw = response.choices[0].message.content
+        if not raw:
+            raise ValueError("Classifier returned empty content")
+        result = json.loads(raw)
+
+        return {
+            "is_health": result.get("is_health", True),
+            "is_emergency": result.get("is_emergency", False),
+            "detected_language": result.get("detected_language", "English"),
+            "refusal_message": result.get("refusal_message", None)
+        }
+    except Exception as e:
+        logger.error(f"Classifier error: {str(e)}")
+        # Fail open — treat as health, not emergency
+        return {"is_health": True, "is_emergency": False, "detected_language": "English", "refusal_message": None}
+
+
+def generate_emergency_response(user_input, language):
+    """Generate a localized emergency response in the user's language."""
+    try:
+        prompt = EMERGENCY_RESPONSE_PROMPT.format(user_input=user_input, language=language)
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=80,
+            temperature=0
+        )
+        raw = response.choices[0].message.content
+        if not raw:
+            raise ValueError("Empty response from OpenAI")
+        
+        return raw.strip()
+    except Exception as e:
+        logger.error(f"Emergency response error: {str(e)}")
+        # Hardcoded fallback
+        return "⚠️ This sounds like an emergency. Please call your local emergency number or go to the nearest hospital immediately."
+
 
 def generate_ai_response(user_input):
-    """Generate a safe, helpful medical explanation using GPT"""
+    """Main entry point. Classifies then responds appropriately."""
     try:
-        # First check for emergencies
-        emergency, keyword = is_emergency(user_input)
-        if emergency:
-            return f"⚠️ EMERGENCY DETECTED: You mentioned '{keyword}'. This sounds serious. Please hang up and call 911 immediately or go to the nearest emergency room. Do not wait."
-        
-        # Generate AI response
+        # Step 1: Classify (handles emergency, language, and topic in one call)
+        classification = classify_message(user_input)
+
+        # Step 2: Emergency takes priority
+        if classification["is_emergency"]:
+            return generate_emergency_response(user_input, classification["detected_language"])
+
+        # Step 3: Off-topic refusal
+        if not classification["is_health"]:
+            return classification["refusal_message"] or "I can only help with health and medical questions."
+
+        # Step 4: Generate health response
         response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Use gpt-4 if available
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_input}
             ],
             max_tokens=300,
-            temperature=0.7
+            temperature=0.3  # Lower = more consistent for medical info
         )
-        
-        ai_response = response.choices[0].message.content
-        return f"{ai_response}\n\n{DISCLAIMER}"
-    
+        raw = response.choices[0].message.content
+
+        if not raw:
+            raise ValueError("Empty response from OpenAI")
+        return raw.strip()
+
     except Exception as e:
         logger.error(f"Error generating AI response: {str(e)}")
-        return "I'm having trouble processing your question right now. Please try again in a few moments or contact your healthcare provider directly."
+        return "I'm having trouble right now. Please contact your healthcare provider directly."
 
+
+# ── Routes ─────────────────────────────────────────────────────────────────────
 
 @app.route('/')
 def home():
-    """Home page with instructions"""
     return render_template('index.html')
+
 
 @app.route('/voice', methods=['POST'])
 def voice():
-    """Handle incoming voice calls"""
     response = VoiceResponse()
-    
-    # Welcome message
-    response.say("Welcome to HealthVoice AI. I'm your friendly health educator.", 
-                 voice='alice', language='en-US')
+
+    response.say(
+        "Welcome to HealthVoice AI. I am your health educator. Please ask your health question.",
+        voice='alice',
+        language='en-US'  
+        # Note: Twilio alice voice supports limited languages.
+        # For broader African language support, consider Twilio's Amazon Polly 
+        # or Google TTS voices which support more languages.
+    )
     response.pause(length=1)
-    
-    # Gather user speech
+
     gather = Gather(
         input='speech',
         action='/voice/process',
         method='POST',
         speechTimeout='auto',
-        language='en-US',
-        hints='what does, explain, how to, medication, lab, test, blood, sugar, cholesterol, A1C, diabetes, blood pressure'
+        language='en-US',  # Twilio will attempt to transcribe; swap for user's language if known
+        hints='medication, lab results, blood pressure, malaria, diabetes, HIV, tuberculosis, pregnancy'
     )
-    gather.say("Please ask your health question after the beep. For example: What does high blood pressure mean? Or: How do I take my medication?")
-    
+    gather.say("Please ask your question now.")
     response.append(gather)
-    
-    # If no speech detected
+
     response.redirect('/voice')
-    
     return str(response)
+
 
 @app.route('/voice/process', methods=['POST'])
 def process_voice():
-    """Process speech input from voice call"""
     speech_result = request.form.get('SpeechResult', '')
-    
+
     if not speech_result:
         response = VoiceResponse()
-        response.say("I didn't catch that. Please try asking your question again.", voice='alice')
+        response.say("I did not catch that. Please try again.", voice='alice')
         response.redirect('/voice')
         return str(response)
-    
+
     logger.info(f"Voice query: {speech_result}")
-    
-    # Generate AI response
+
     ai_response = generate_ai_response(speech_result)
-    
-    # Convert to speech
+
     response = VoiceResponse()
     response.say(ai_response, voice='alice', language='en-US')
     response.pause(length=2)
-    
-    # Offer to continue
-    response.say("Would you like to ask another question?", voice='alice')
+
     gather = Gather(
         input='speech dtmf',
         action='/voice/continue',
         method='POST',
         speechTimeout=3
     )
-    gather.say("Say yes or press 1 to continue. Say no or press 2 to end the call.")
+    gather.say("Say yes or press 1 to ask another question. Say no or press 2 to end.")
     response.append(gather)
-    
-    # Timeout handler
+
     response.redirect('/voice/end')
-    
     return str(response)
+
 
 @app.route('/voice/continue', methods=['POST'])
 def voice_continue():
-    """Handle continuation choice"""
     response = VoiceResponse()
     user_choice = request.form.get('SpeechResult', '').lower() or request.form.get('Digits', '')
-    
-    if user_choice in ['yes', '1', 'continue']:
+
+    if user_choice in ['yes', '1', 'continue', 'ndiyo', 'oui', 'naam']:  # yes in Swahili, French, Arabic
         response.redirect('/voice')
     else:
-        response.say("Thank you for using HealthVoice AI. Remember to always consult with your doctor for medical advice. Goodbye!", voice='alice')
+        response.say("Thank you for using HealthVoice AI. Please see a doctor for personal advice. Goodbye!", voice='alice')
         response.hangup()
-    
     return str(response)
+
 
 @app.route('/voice/end')
 def voice_end():
-    """End call handler"""
     response = VoiceResponse()
-    response.say("I didn't hear a response. Thank you for using HealthVoice AI. Goodbye!", voice='alice')
+    response.say("Thank you for using HealthVoice AI. Goodbye!", voice='alice')
     response.hangup()
     return str(response)
 
+
 @app.route('/sms', methods=['POST'])
 def sms():
-    """Handle incoming SMS/WhatsApp messages"""
     incoming_msg = request.form.get('Body', '').strip()
     from_number = request.form.get('From', '')
-    
+
     logger.info(f"SMS from {from_number}: {incoming_msg}")
-    
+
     ai_response = generate_ai_response(incoming_msg)
 
-    footer = "\n\n📞 Need voice help? Call our toll-free number: [Your Number Here]\n💡 Tip: Ask about medications, lab results, or medical terms!"
-    
+    # No hardcoded English footer — keep it clean for multilingual users
     resp = MessagingResponse()
-    resp.message(ai_response + footer)
+    resp.message(ai_response)
     return str(resp)
 
 
 @app.route('/test', methods=['GET'])
 def test():
-    """Health check endpoint (no OpenAI calls)."""
     return jsonify({
         "status": "healthy",
         "server": "running",
         "openai_key_loaded": bool(os.getenv("OPENAI_API_KEY")),
-        "note": "No OpenAI call here. Use POST /api/ask to query the AI."
     })
+
 
 @app.route("/api/ask", methods=["POST"])
 def api_ask():
-    """Web demo endpoint: call OpenAI once per question."""
     data = request.get_json(silent=True) or {}
     question = (data.get("question") or "").strip()
 
