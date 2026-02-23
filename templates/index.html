@@ -328,12 +328,13 @@
     aiResponse.innerHTML = '<p>⚠️ Error: Could not connect to server.</p>';
   }
 }
-
         
         // Auto-fill with first example on page load
         document.addEventListener('DOMContentLoaded', function() {
-            fillQuestion('What does high cholesterol mean?');
-        });
+            const input = document.getElementById('question-input'); // use your actual input id
+            input.placeholder = 'Type your health question here...';
+            input.value = ''; // make sure input is empty
+            });
     </script>
 </body>
 </html>

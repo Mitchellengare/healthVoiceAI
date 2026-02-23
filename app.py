@@ -130,7 +130,7 @@ def classify_message(user_input, country="UNKNOWN"):
                 {"role": "system", "content": CLASSIFIER_PROMPT},
                 {"role": "user", "content": f"[Caller country: {country}]\n{user_input}"}
             ],
-            max_tokens=150,
+            max_tokens=200,
             temperature=0,
             response_format={"type": "json_object"}
         )
@@ -142,23 +142,24 @@ def classify_message(user_input, country="UNKNOWN"):
         return {
             "is_health": result.get("is_health", False),
             "is_emergency": result.get("is_emergency", False),
-            "detected_language": result.get("detected_language", "English"),
-            "refusal_message": result.get("refusal_message", None)
+            "is_understandable": result.get("is_understandable", True),
+            "language_code": result.get("language_code", "unknown"),
+            "language_name": result.get("language_name", "Unknown"),
+            "language_confidence": float(result.get("language_confidence", 0.0)),
+            "refusal_message": result.get("refusal_message", None),
         }
     except Exception as e:
         logger.error(f"Classifier error: {str(e)}")
         # Fail CLOSED — prevents becoming a general-purpose bot if classification fails
         return {
-            "is_health": result.get("is_health", False),
-            "is_emergency": result.get("is_emergency", False),
-            "is_understandable": result.get("is_understandable", True),
-            "language_code": result.get("language_code", "unknown"),
-            "language_name": result.get("language_name", "Unknown"),
-            "language_confidence": result.get("language_confidence", 0.0),
-            "refusal_message": result.get("refusal_message")
+                "is_health": False,
+                "is_emergency": False,
+                "is_understandable": True,
+                "language_code": "unknown",
+                "language_name": "Unknown",
+                "language_confidence": 0.0,
+                "refusal_message": "I can only help with health and medical questions."
         }
-
-
 
 def generate_emergency_response(user_input, language):
     """Generate a localized emergency response in the user's language."""
@@ -197,13 +198,14 @@ def generate_ai_response(user_input, country="UNKNOWN", user_id = None):
 
         # Step 3: Emergency takes priority
         if classification["is_emergency"]:
-            return generate_emergency_response(user_input, classification["detected_language"])
-        
+            return generate_emergency_response(user_input, classification.get("language_name", "Unknown"))
+
         # Step 4: If we can't understand the message OR we can't confidently identify the language,
-        if (not classification.get("is_understandable", True)) or (classification.get("language_confidence", 0) < 0.7):
+        if (not classification.get("is_understandable", True)) and (classification.get("language_confidence", 1.0) < 0.7):
             return (
-                "I didn’t understand your message clearly. Please retype your health question in your preferred language, "
-                "or tell me the language name you want me to use.")
+                    "I didn’t understand your message clearly. Please retype your health question in your preferred language, "
+                    "or tell me the language name you want me to use."
+                    )
 
         # Step 5: Off-topic refusal
         if not classification["is_health"]:
