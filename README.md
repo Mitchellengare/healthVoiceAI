@@ -42,8 +42,10 @@ cd healthvoice-ai
 
 
 
-# pip install -r requirements.txt
-# create virtual env
-# pip install flask twilio openai python-dotenv gunicorn - install independecies
-# .env has the api keys
-# brew install ngrok/ngrok/ngrok for voice/sms
+`pip install -r requirements.txt`
+`create virtual env`
+`pip install flask twilio openai python-dotenv gunicorn - install independecies`
+`brew install ngrok/ngrok/ngrok for voice/sms`
+
+notes:
+its confusing bantu languages, i used Ekegusii and it replied in Kinyarwanda, with something different

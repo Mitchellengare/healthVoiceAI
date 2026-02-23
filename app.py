@@ -6,6 +6,7 @@ import os
 from dotenv import load_dotenv
 import logging
 import json
+import phonenumbers
 
 load_dotenv()
 
@@ -13,9 +14,37 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Phone Number Helpers 
+def normalize_e164(number: str) -> str:
+    """Ensure phone number is in international E.164 format."""
+    number = (number or "").strip()
+    if not number:
+        return ""
+    try:
+        parsed = phonenumbers.parse(number, None)
+        if phonenumbers.is_valid_number(parsed):
+            return phonenumbers.format_number(
+                parsed,
+                phonenumbers.PhoneNumberFormat.E164
+            )
+    except Exception:
+        pass
+    return number
+
+
+def infer_country_code(number_e164: str) -> str:
+    """Return ISO country code like 'NG', 'GH', 'ZA' from phone number."""
+    try:
+        parsed = phonenumbers.parse(number_e164, None)
+        region = phonenumbers.region_code_for_number(parsed)
+        return region or "UNKNOWN"
+    except Exception:
+        return "UNKNOWN"
+
+
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), max_retries=0)
 
-# ── Prompts ────────────────────────────────────────────────────────────────────
+#Prompts
 
 CLASSIFIER_PROMPT = """You are a classifier for a health education service used across Africa.
 
@@ -37,9 +66,18 @@ Respond ONLY in this exact JSON format:
 {
   "is_health": true or false,
   "is_emergency": true or false,
-  "detected_language": "language name in English e.g. Swahili, Hausa, English, French",
-  "refusal_message": "polite refusal in user's language — only include this key if is_health is false"
-}"""
+  "is_understandable": true or false,
+  "language_code": "ISO 639-3 if possible (e.g., 'guz', 'rw', 'yo', 'ig', 'ha'); otherwise 'unknown'",
+  "language_name": "language name in English or 'Unknown'",
+  "language_confidence": 0.0 to 1.0,
+  "refusal_message": "only include if is_health is false AND language_confidence >= 0.7 AND is_understandable is true"
+}
+
+Rules:
+- If the message is too short, garbled, or ambiguous, set is_understandable=false.
+- If you are not confident about the language, set language_code='unknown', language_name='Unknown', language_confidence < 0.7.
+- Only generate refusal_message when you are confident you are matching the user's language.
+"""
 
 SYSTEM_PROMPT = """You are HealthVoice AI, a compassionate health educator serving patients across Africa.
 
@@ -79,7 +117,7 @@ User message: {user_input}
 Detected language: {language}"""
 
 
-def classify_message(user_input):
+def classify_message(user_input, country="UNKNOWN"):
     """
     Classify the message in one GPT call.
     Returns dict with: is_health, is_emergency, detected_language, refusal_message (optional)
@@ -89,7 +127,7 @@ def classify_message(user_input):
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": CLASSIFIER_PROMPT},
-                {"role": "user", "content": user_input}
+                {"role": "user", "content": f"[Caller country: {country}]\n{user_input}"}
             ],
             max_tokens=150,
             temperature=0,
@@ -101,15 +139,24 @@ def classify_message(user_input):
         result = json.loads(raw)
 
         return {
-            "is_health": result.get("is_health", True),
+            "is_health": result.get("is_health", False),
             "is_emergency": result.get("is_emergency", False),
             "detected_language": result.get("detected_language", "English"),
             "refusal_message": result.get("refusal_message", None)
         }
     except Exception as e:
         logger.error(f"Classifier error: {str(e)}")
-        # Fail open — treat as health, not emergency
-        return {"is_health": True, "is_emergency": False, "detected_language": "English", "refusal_message": None}
+        # Fail CLOSED — prevents becoming a general-purpose bot if classification fails
+        return {
+            "is_health": result.get("is_health", False),
+            "is_emergency": result.get("is_emergency", False),
+            "is_understandable": result.get("is_understandable", True),
+            "language_code": result.get("language_code", "unknown"),
+            "language_name": result.get("language_name", "Unknown"),
+            "language_confidence": result.get("language_confidence", 0.0),
+            "refusal_message": result.get("refusal_message")
+        }
+
 
 
 def generate_emergency_response(user_input, language):
@@ -133,11 +180,11 @@ def generate_emergency_response(user_input, language):
         return "⚠️ This sounds like an emergency. Please call your local emergency number or go to the nearest hospital immediately."
 
 
-def generate_ai_response(user_input):
+def generate_ai_response(user_input, country="UNKNOWN"):
     """Main entry point. Classifies then responds appropriately."""
     try:
         # Step 1: Classify (handles emergency, language, and topic in one call)
-        classification = classify_message(user_input)
+        classification = classify_message(user_input, country=country)
 
         # Step 2: Emergency takes priority
         if classification["is_emergency"]:
@@ -151,7 +198,7 @@ def generate_ai_response(user_input):
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": SYSTEM_PROMPT + f"\n\nContext: Caller country is {country}."},
                 {"role": "user", "content": user_input}
             ],
             max_tokens=300,
@@ -168,8 +215,7 @@ def generate_ai_response(user_input):
         return "I'm having trouble right now. Please contact your healthcare provider directly."
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
-
+#Routes 
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -177,7 +223,14 @@ def home():
 
 @app.route('/voice', methods=['POST'])
 def voice():
+    from_number_raw = request.form.get("From", "")
+    from_number = normalize_e164(from_number_raw)
+    country = infer_country_code(from_number)
+
+    logger.info(f"VOICE call from {from_number} (country={country})")
+
     response = VoiceResponse()
+
 
     response.say(
         "Welcome to HealthVoice AI. I am your health educator. Please ask your health question.",
@@ -215,8 +268,8 @@ def process_voice():
         return str(response)
 
     logger.info(f"Voice query: {speech_result}")
-
-    ai_response = generate_ai_response(speech_result)
+    country = request.args.get("country", "UNKNOWN")
+    ai_response = generate_ai_response(speech_result, country=country)
 
     response = VoiceResponse()
     response.say(ai_response, voice='alice', language='en-US')
@@ -224,7 +277,7 @@ def process_voice():
 
     gather = Gather(
         input='speech dtmf',
-        action='/voice/continue',
+        action='/voice/continue?country={country}',
         method='POST',
         speechTimeout=3
     )
@@ -259,11 +312,14 @@ def voice_end():
 @app.route('/sms', methods=['POST'])
 def sms():
     incoming_msg = request.form.get('Body', '').strip()
-    from_number = request.form.get('From', '')
+    from_number_raw = request.form.get('From', '')
 
-    logger.info(f"SMS from {from_number}: {incoming_msg}")
+    from_number = normalize_e164(from_number_raw)
+    country = infer_country_code(from_number)
 
-    ai_response = generate_ai_response(incoming_msg)
+    logger.info(f"SMS from {from_number} (country={country}): {incoming_msg}")
+
+    ai_response = generate_ai_response(incoming_msg, country=country)
 
     # No hardcoded English footer — keep it clean for multilingual users
     resp = MessagingResponse()
