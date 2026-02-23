@@ -43,6 +43,7 @@ def infer_country_code(number_e164: str) -> str:
 
 
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), max_retries=0)
+USER_LANG_PREF = {}
 
 #Prompts
 
@@ -180,21 +181,40 @@ def generate_emergency_response(user_input, language):
         return "⚠️ This sounds like an emergency. Please call your local emergency number or go to the nearest hospital immediately."
 
 
-def generate_ai_response(user_input, country="UNKNOWN"):
+def generate_ai_response(user_input, country="UNKNOWN", user_id = None):
     """Main entry point. Classifies then responds appropriately."""
     try:
         # Step 1: Classify (handles emergency, language, and topic in one call)
         classification = classify_message(user_input, country=country)
 
-        # Step 2: Emergency takes priority
+        # Step 2: If user is setting a preferred language
+        if classification.get("intent") == "set_language":
+            requested = (classification.get("requested_language") or "").strip()
+            if requested and user_id:
+                USER_LANG_PREF[user_id] = requested
+                return f"Okay. I will reply in {requested}. Now ask your health question."
+            return "Okay. Tell me your health question, and I will reply in that language."
+
+        # Step 3: Emergency takes priority
         if classification["is_emergency"]:
             return generate_emergency_response(user_input, classification["detected_language"])
+        
+        # Step 4: If we can't understand the message OR we can't confidently identify the language,
+        if (not classification.get("is_understandable", True)) or (classification.get("language_confidence", 0) < 0.7):
+            return (
+                "I didn’t understand your message clearly. Please retype your health question in your preferred language, "
+                "or tell me the language name you want me to use.")
 
-        # Step 3: Off-topic refusal
+        # Step 5: Off-topic refusal
         if not classification["is_health"]:
             return classification["refusal_message"] or "I can only help with health and medical questions."
 
-        # Step 4: Generate health response
+        # Step 6: Generate health response
+        preferred = USER_LANG_PREF.get(user_id) if user_id else None
+        system = SYSTEM_PROMPT + f"\n\nContext: Caller country is {country}."
+        if preferred:
+            system += f"\nUser prefers responses in: {preferred}. Always respond in that language."
+
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
@@ -319,7 +339,7 @@ def sms():
 
     logger.info(f"SMS from {from_number} (country={country}): {incoming_msg}")
 
-    ai_response = generate_ai_response(incoming_msg, country=country)
+    ai_response = generate_ai_response(incoming_msg, country=country, user_id=from_number)
 
     # No hardcoded English footer — keep it clean for multilingual users
     resp = MessagingResponse()
