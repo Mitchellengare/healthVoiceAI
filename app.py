@@ -7,12 +7,24 @@ from dotenv import load_dotenv
 import logging
 import json
 import phonenumbers
+from rag.pipeline import RAGPipeline
+from hallucination.scorer import HallucinationScorer
 
 load_dotenv()
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initializa RAG + scorer 
+try:
+    rag = RAGPipeline()
+    scorer = HallucinationScorer()
+    logger.info("RAG pipeline and hallucination scorer loaded.")
+except Exception as e:
+    logger.error(f"[STARTUP ERROR] Failed to load RAG/scorer: {e}")
+    raise
+
 
 # Phone Number Helpers 
 def normalize_e164(number: str) -> str:
@@ -181,6 +193,18 @@ def generate_emergency_response(user_input, language):
         # Hardcoded fallback
         return "⚠️ This sounds like an emergency. Please call your local emergency number or go to the nearest hospital immediately."
 
+def generate_rag_response(user_input, country="UNKNOWN", user_id=None, preferred_lang=None):
+    """RAG-grounded health response with hallucination scoring"""
+    chunks = rag.retrieve(user_input, top_k=5)
+    answer = rag.generate(user_input, chunks)
+    score_result = scorer.score(answer, chunks)
+
+    if score_result["label"] == "HIGH":
+        logger.warning(f"HIGH hallucination risk | country={country} | query={user_input[:80]}")
+        answer += "\n\n Note: I recommend confirming this with a healthcare provider"
+
+    return answer, score_result
+
 
 def generate_ai_response(user_input, country="UNKNOWN", user_id = None):
     """Main entry point. Classifies then responds appropriately."""
@@ -213,24 +237,11 @@ def generate_ai_response(user_input, country="UNKNOWN", user_id = None):
 
         # Step 6: Generate health response
         preferred = USER_LANG_PREF.get(user_id) if user_id else None
-        system = SYSTEM_PROMPT + f"\n\nContext: Caller country is {country}."
-        if preferred:
-            system += f"\nUser prefers responses in: {preferred}. Always respond in that language."
-
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT + f"\n\nContext: Caller country is {country}."},
-                {"role": "user", "content": user_input}
-            ],
-            max_tokens=300,
-            temperature=0.3  # Lower = more consistent for medical info
-        )
-        raw = response.choices[0].message.content
-
-        if not raw:
-            raise ValueError("Empty response from OpenAI")
-        return raw.strip()
+        answer, score_result = generate_rag_response(
+            user_input, country=country, user_id=user_id, preferred_lang=preferred
+            )
+        
+        return answer
 
     except Exception as e:
         logger.error(f"Error generating AI response: {str(e)}")
@@ -294,12 +305,13 @@ def process_voice():
     ai_response = generate_ai_response(speech_result, country=country)
 
     response = VoiceResponse()
+    response.say("Let me look that up for you.", voice='alice', language='en-US')
     response.say(ai_response, voice='alice', language='en-US')
     response.pause(length=2)
 
     gather = Gather(
         input='speech dtmf',
-        action='/voice/continue?country={country}',
+        action=f'/voice/continue?country={country}',
         method='POST',
         speechTimeout=3
     )
@@ -369,6 +381,15 @@ def api_ask():
     answer = generate_ai_response(question)
     return jsonify({"question": question, "answer": answer})
 
+
+@app.route("/api/ingest", methods=["POST"])
+def ingest():
+    data = request.get_json(silent=True) or {}
+    texts = data.get("texts", [])
+    if not texts:
+        return jsonify({"error": "No texts provided"}), 400
+    count = rag.ingest(texts)
+    return jsonify({"ingested": count})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))

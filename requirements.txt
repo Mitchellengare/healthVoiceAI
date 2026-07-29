@@ -1,5 +1,13 @@
 Flask==2.3.3
+flask-cors
 twilio==8.13.0
-openai==0.28.0
+openai>=1.30.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
+sentence-transformers
+faiss-cpu
+transformers
+torch
+numpy
+requests
+phonenumbers
