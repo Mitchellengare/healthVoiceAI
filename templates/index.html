@@ -1,340 +1,487 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HealthVoice AI - Medical Explanations for Everyone</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 3rem;
-            color: white;
-        }
-        
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 0.5rem;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .tagline {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            margin-bottom: 1rem;
-        }
-        
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .access-methods {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-        
-        .method {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1.5rem;
-            border: 1px solid #e9ecef;
-            transition: transform 0.3s ease;
-        }
-        
-        .method:hover {
-            transform: translateY(-5px);
-        }
-        
-        .method-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .method h3 {
-            color: #2d3748;
-            margin-bottom: 0.5rem;
-        }
-        
-        .method p {
-            color: #4a5568;
-            margin-bottom: 1rem;
-        }
-        
-        .phone {
-            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-            color: white;
-        }
-        
-        .sms {
-            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-            color: white;
-        }
-        
-        .demo-section {
-            background: #2d3748;
-            color: white;
-            border-radius: 10px;
-            padding: 2rem;
-            margin-top: 2rem;
-        }
-        
-        .example-questions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin: 1.5rem 0;
-        }
-        
-        .example {
-            background: rgba(255,255,255,0.1);
-            padding: 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.3s ease;
-        }
-        
-        .example:hover {
-            background: rgba(255,255,255,0.2);
-        }
-        
-        .test-form {
-            margin-top: 2rem;
-        }
-        
-        .test-input {
-            width: 100%;
-            padding: 1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            margin-bottom: 1rem;
-            transition: border-color 0.3s ease;
-        }
-        
-        .test-input:focus {
-            outline: none;
-            border-color: #4299e1;
-        }
-        
-        .test-button {
-            background: #48bb78;
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.3s ease;
-            width: 100%;
-        }
-        
-        .test-button:hover {
-            background: #38a169;
-        }
-        
-        .response-box {
-            background: #012c49;
-            border: 1px solid #0366e7;
-            border-radius: 8px;
-            padding: 1rem;
-            margin-top: 1rem;
-            min-height: 100px;
-            display: none;
-        }
-        
-        .tech-stack {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-top: 2rem;
-        }
-        
-        .tech-item {
-            background: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            color: #4a5568;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        footer {
-            text-align: center;
-            margin-top: 3rem;
-            color: white;
-            opacity: 0.8;
-        }
-        
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2rem;
-            }
-            
-            .container {
-                padding: 1rem;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HealthVoice AI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --amber: #BA7517;
+    --amber-light: #FAEEDA;
+    --amber-dark: #633806;
+    --teal: #0F6E56;
+    --teal-light: #E1F5EE;
+    --coral: #993C1D;
+    --surface: #FAFAF8;
+    --card: #FFFFFF;
+    --text: #1a1a18;
+    --text-2: #5a5a54;
+    --text-3: #8a8a82;
+    --border: rgba(0,0,0,0.08);
+    --radius: 12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--surface);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .hero {
+    background: #1C2B1E;
+    color: #fff;
+    padding: 4rem 2rem 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 20% 50%, rgba(186,117,23,0.15) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 30%, rgba(29,158,117,0.12) 0%, transparent 50%);
+  }
+
+  .hero-inner { position: relative; max-width: 640px; margin: 0 auto; }
+
+  .hero-badge {
+    display: inline-block;
+    background: rgba(186,117,23,0.2);
+    color: #FAC775;
+    border: 1px solid rgba(186,117,23,0.3);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+    margin-bottom: 1.25rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 600;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+  }
+
+  .hero h1 span { color: #FAC775; }
+
+  .hero p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    max-width: 480px;
+    margin: 0 auto 2rem;
+  }
+
+  .hero-channels {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .channel-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 30px;
+    padding: 8px 16px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.9);
+  }
+
+  .channel-pill .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    flex-shrink: 0;
+  }
+
+  .main { max-width: 720px; margin: 0 auto; padding: 2.5rem 1.5rem; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 1rem;
+  }
+
+  .demo-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+
+  .demo-header {
+    background: #1C2B1E;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .demo-header-left { display: flex; align-items: center; gap: 10px; }
+
+  .demo-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(186,117,23,0.3);
+    border: 1.5px solid rgba(186,117,23,0.5);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .demo-header-name { font-size: 14px; font-weight: 500; color: #fff; }
+  .demo-header-sub { font-size: 11px; color: rgba(255,255,255,0.4); }
+
+  .demo-status {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; color: rgba(255,255,255,0.5);
+  }
+
+  .demo-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
+
+  .demo-body { padding: 1.25rem; min-height: 280px; display: flex; flex-direction: column; gap: 12px; }
+
+  .msg {
+    max-width: 82%;
+    padding: 9px 13px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .msg.user {
+    align-self: flex-end;
+    background: #BA7517;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg.bot {
+    align-self: flex-start;
+    background: #F0F0EC;
+    color: #1a1a18;
+    border-bottom-left-radius: 4px;
+  }
+
+  .msg.bot .disclaimer {
+    font-size: 11px;
+    color: #8a8a82;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .msg.emergency {
+    align-self: flex-start;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #7F1D1D;
+    border-bottom-left-radius: 4px;
+  }
+
+  .lang-tag {
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--amber-light);
+    color: var(--amber-dark);
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    display: inline-block;
+  }
+
+  .demo-input-row {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .demo-input-row input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    font-family: inherit;
+  }
+
+  .demo-input-row input:focus { border-color: #BA7517; }
+
+  .demo-input-row button {
+    background: #BA7517;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+
+  .demo-input-row button:hover { background: #854F0B; }
+
+  .quick-qs {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .quick-q {
+    font-size: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 4px 10px;
+    cursor: pointer;
+    color: var(--text-2);
+    transition: border-color 0.15s;
+  }
+
+  .quick-q:hover { border-color: #BA7517; color: var(--amber); }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 2rem; }
+
+  .feature {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+  }
+
+  .feature-icon { font-size: 18px; margin-bottom: 8px; }
+  .feature h3 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .feature p { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+  .accent-bar {
+    width: 28px; height: 3px;
+    background: var(--amber);
+    border-radius: 2px;
+    margin-bottom: 0.75rem;
+  }
+
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 2rem; }
+
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .stat-num { font-size: 22px; font-weight: 600; color: var(--amber); }
+  .stat-label { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+  .stack-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 2.5rem; }
+
+  .pill {
+    font-size: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    color: var(--text-2);
+  }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3);
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .thinking { display: flex; gap: 4px; align-items: center; padding: 2px 0; }
+  .thinking span { width: 6px; height: 6px; border-radius: 50%; background: #aaa; animation: pulse 1.2s infinite; }
+  .thinking span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:1} }
+</style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>HealthVoice AI</h1>
-            <p class="tagline">Medical explanations in plain language, via phone or SMS—no smartphone required.</p>
-        </header>
-        
-        <div class="card">
-            <h2>🚨 The Problem</h2>
-            <p>40% of elderly and low-income patients don't use smartphones regularly. They're left out of the healthcare AI revolution. Complex medical jargon creates confusion and poor health outcomes.</p>
-        </div>
-        
-        <div class="card">
-            <h2>💡 Our Solution</h2>
-            <p>HealthVoice AI bridges the digital divide by providing AI-powered medical explanations through the most accessible technologies: <strong>voice calls</strong> and <strong>SMS</strong>.</p>
-            
-            <div class="access-methods">
-                <div class="method phone">
-                    <div class="method-icon">📞</div>
-                    <h3>Voice Call</h3>
-                    <p>Call our toll-free number, ask any medical question in plain language, get a clear explanation in response.</p>
-                    <p><strong>Toll-Free Number:</strong> [Your Twilio Number]</p>
-                </div>
-                
-                <div class="method sms">
-                    <div class="method-icon">💬</div>
-                    <h3>SMS</h3>
-                    <p>Text your question to our number, get a text explanation in return. Works on any mobile phone.</p>
-                    <p><strong>Text to:</strong> [Your Twilio Number]</p>
-                </div>
-            </div>
-        </div>
-        
-        <div class="demo-section">
-            <h2>🎧 Try It Out</h2>
-            <p>Ask a medical question below to see how HealthVoice AI responds:</p>
-            
-            <div class="example-questions">
-                <div class="example" onclick="fillQuestion('What does high cholesterol mean?')">
-                    "What does high cholesterol mean?"
-                </div>
-                <div class="example" onclick="fillQuestion('How should I take metformin?')">
-                    "How should I take metformin?"
-                </div>
-                <div class="example" onclick="fillQuestion('Explain my blood pressure reading')">
-                    "Explain my blood pressure reading"
-                </div>
-                <div class="example" onclick="fillQuestion('What is A1C test for diabetes?')">
-                    "What is A1C test for diabetes?"
-                </div>
-            </div>
-            
-            <div class="test-form">
-                <input type="text" class="test-input" id="questionInput" placeholder="Type your medical question here...">
-                <button class="test-button" onclick="testAI()">Get AI Explanation</button>
-                
-                <div class="response-box" id="responseBox">
-                    <div id="aiResponse"></div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>🛡️ Safety Features</h2>
-            <ul style="list-style-position: inside; padding-left: 1rem;">
-                <li><strong>Emergency Detection:</strong> Recognizes keywords like "chest pain" and directs to call 911</li>
-                <li><strong>Medical Disclaimers:</strong> Clear reminders that AI is not a doctor</li>
-                <li><strong>HIPAA-aware:</strong> No personal health information stored</li>
-                <li><strong>Bias Mitigation:</strong> Carefully crafted prompts for equitable explanations</li>
-            </ul>
-        </div>
-        
-        <div class="tech-stack">
-            <div class="tech-item">Flask</div>
-            <div class="tech-item">Twilio</div>
-            <div class="tech-item">OpenAI GPT</div>
-            <div class="tech-item">Python</div>
-            <div class="tech-item">Whisper STT</div>
-        </div>
-        
-        <footer>
-            <p>Made with ❤️ for accessible healthcare | Health Equity | HealthVoice AI 2026</p>
-        </footer>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">Africa-first · SMS and voice · No smartphone needed</div>
+    <h1>Clinical answers,<br><span>any phone</span></h1>
+    <p>Text or call with any health question. HealthVoice AI responds in your language, grounded in indexed medical literature.</p>
+    <div class="hero-channels">
+      <div class="channel-pill"><span class="dot"></span> SMS · text your question</div>
+      <div class="channel-pill"><span class="dot"></span> Voice · call and speak</div>
     </div>
-    
-    <script>
-        function fillQuestion(question) {
-            document.getElementById('questionInput').value = question;
-        }
-        
-        async function testAI() {
-  const question = document.getElementById('questionInput').value.trim();
-  const responseBox = document.getElementById('responseBox');
-  const aiResponse = document.getElementById('aiResponse');
+  </div>
+</div>
 
-  if (!question) {
-    alert('Please enter a question');
-    return;
+<div class="main">
+
+  <div class="section-label" style="margin-top:0.5rem">Try it — test the API</div>
+  <div class="demo-card">
+    <div class="demo-header">
+      <div class="demo-header-left">
+        <div class="demo-avatar">🩺</div>
+        <div>
+          <div class="demo-header-name">HealthVoice AI</div>
+          <div class="demo-header-sub">+1 (xxx) xxx-xxxx</div>
+        </div>
+      </div>
+      <div class="demo-status"><span class="dot"></span>online</div>
+    </div>
+
+    <div class="demo-body" id="chat">
+      <div class="msg bot">
+        <div class="lang-tag">EN</div><br>
+        Habari! I can answer health questions in any language. Try asking about malaria, HIV, maternal health, diabetes, or any other medical topic.
+        <div class="disclaimer">This is health education only. Please see a doctor for personal advice.</div>
+      </div>
+    </div>
+
+    <div class="quick-qs">
+      <span class="quick-q" onclick="ask('Dawa ya malaria ni gani?')">Dawa ya malaria ni gani?</span>
+      <span class="quick-q" onclick="ask('What are signs of high blood pressure?')">Signs of high blood pressure</span>
+      <span class="quick-q" onclick="ask('How is HIV transmitted?')">How is HIV transmitted?</span>
+      <span class="quick-q" onclick="ask('My chest hurts badly')">My chest hurts badly</span>
+    </div>
+
+    <div class="demo-input-row">
+      <input type="text" id="qinput" placeholder="Type your health question..." />
+      <button onclick="send()">Send</button>
+    </div>
+  </div>
+
+  <div class="section-label">Coverage</div>
+  <div class="stat-row">
+    <div class="stat"><div class="stat-num">54</div><div class="stat-label">African countries served</div></div>
+    <div class="stat"><div class="stat-num">20+</div><div class="stat-label">Languages detected</div></div>
+    <div class="stat"><div class="stat-num">2-layer</div><div class="stat-label">Hallucination detection</div></div>
+  </div>
+
+  <div class="section-label">Why it's different</div>
+  <div class="features">
+    <div class="feature">
+      <div class="accent-bar"></div>
+      <h3>Literature-grounded</h3>
+      <p>Every answer is retrieved from indexed PubMed research before GPT generates a response.</p>
+    </div>
+    <div class="feature">
+      <div class="accent-bar"></div>
+      <h3>Hallucination scored</h3>
+      <p>NLI entailment and BERT NSP check each sentence against the source before it's sent.</p>
+    </div>
+    <div class="feature">
+      <div class="accent-bar"></div>
+      <h3>Emergency-aware</h3>
+      <p>Detects chest pain, bleeding, and other emergencies in any language. Routes to local services immediately.</p>
+    </div>
+    <div class="feature">
+      <div class="accent-bar"></div>
+      <h3>Works on any phone</h3>
+      <p>SMS and voice. No app, no data plan, no smartphone required.</p>
+    </div>
+  </div>
+
+  <div class="section-label">Built with</div>
+  <div class="stack-pills">
+    <span class="pill">Flask</span>
+    <span class="pill">Twilio</span>
+    <span class="pill">OpenAI GPT-4o-mini</span>
+    <span class="pill">FAISS</span>
+    <span class="pill">sentence-transformers</span>
+    <span class="pill">BERT NSP</span>
+    <span class="pill">cross-encoder NLI</span>
+    <span class="pill">PubMed API</span>
+  </div>
+
+</div>
+
+<footer>HealthVoice AI · Health education only · Always consult a healthcare provider for personal medical advice</footer>
+
+<script>
+const chat = document.getElementById('chat');
+
+function addMsg(text, type, lang) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + type;
+  if (lang && type === 'bot') {
+    d.innerHTML = '<div class="lang-tag">' + lang + '</div><br>' + text.replace(/\n/g, '<br>') +
+      '<div class="disclaimer">This is health education only. Please see a doctor or nurse for personal medical advice.</div>';
+  } else if (type === 'emergency') {
+    d.innerHTML = '⚠️ ' + text;
+  } else {
+    d.textContent = text;
   }
+  chat.appendChild(d);
+  d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  return d;
+}
 
-  aiResponse.innerHTML = '<p>Thinking...</p>';
-  responseBox.style.display = 'block';
+function addThinking() {
+  const d = document.createElement('div');
+  d.className = 'msg bot';
+  d.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+  chat.appendChild(d);
+  d.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  return d;
+}
 
+async function ask(q) {
+  document.getElementById('qinput').value = q;
+  await send();
+}
+
+async function send() {
+  const input = document.getElementById('qinput');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  addMsg(q, 'user');
+  const thinking = addThinking();
   try {
-    const response = await fetch('/api/ask', {
+    const res = await fetch('/api/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question })
+      body: JSON.stringify({ question: q })
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      aiResponse.innerHTML = `<p>⚠️ Error: ${data.error || 'Something went wrong'}</p>`;
-      return;
+    const data = await res.json();
+    thinking.remove();
+    const answer = data.answer || data.error || 'No response.';
+    const isEmergency = answer.toLowerCase().includes('emergency') && answer.length < 200;
+    if (isEmergency) {
+      addMsg(answer, 'emergency');
+    } else {
+      addMsg(answer, 'bot', 'AI');
     }
-
-    aiResponse.innerHTML = `
-      <p><strong>Question:</strong> "${data.question}"</p>
-      <p><strong>HealthVoice AI says:</strong></p>
-      <p>${String(data.answer).replace(/\n/g, '<br>')}</p>
-    `;
-  } catch (error) {
-    aiResponse.innerHTML = '<p>⚠️ Error: Could not connect to server.</p>';
+  } catch (e) {
+    thinking.remove();
+    addMsg('Could not connect to server. Make sure the Flask app is running.', 'emergency');
   }
 }
-        
-        // Auto-fill with first example on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            const input = document.getElementById('question-input'); // use your actual input id
-            input.placeholder = 'Type your health question here...';
-            input.value = ''; // make sure input is empty
-            });
-    </script>
+
+document.getElementById('qinput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') send();
+});
+</script>
 </body>
 </html>
