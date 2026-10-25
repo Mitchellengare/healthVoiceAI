@@ -20,13 +20,13 @@ def scorer(monkeypatch):
 
 
 def test_nli_gets_text_pair(scorer):
-    scorer.nli = MagicMock(return_value=[{"label": "entailment", "score": 0.9}])
+    scorer.nli = MagicMock(return_value={"label": "entailment", "score": 0.9})
     assert scorer._nli_score("hyp", "prem") == pytest.approx(0.1)
     assert scorer.nli.call_args.args[0] == {"text": "prem", "text_pair": "hyp"}
 
 
 def test_contradiction_and_neutral(scorer):
-    scorer.nli = MagicMock(return_value=[{"label": "CONTRADICTION", "score": 0.8}])
+    scorer.nli = MagicMock(return_value={"label": "CONTRADICTION", "score": 0.8})
     assert scorer._nli_score("h", "p") == 0.8
     scorer.nli = MagicMock(return_value=[{"label": "neutral", "score": 0.8}])
     assert scorer._nli_score("h", "p") == 0.5

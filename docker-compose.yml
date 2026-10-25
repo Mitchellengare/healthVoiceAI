@@ -1,0 +1,15 @@
+services:
+  healthvoice:
+    build: .
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file: .env
+    environment:
+      PORT: "8000"
+    volumes:
+      - ./data:/app/data          # FAISS index + metadata survive rebuilds
+      - hf_cache:/models          # model downloads (~2.5 GB) are cached across restarts
+    restart: unless-stopped
+
+volumes:
+  hf_cache:

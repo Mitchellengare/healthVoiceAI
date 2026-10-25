@@ -16,3 +16,4 @@ node_modules/
 # Shell / system files
 .tcshrc
 .viminfo
+!.env.example

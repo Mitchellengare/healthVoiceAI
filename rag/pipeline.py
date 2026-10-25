@@ -1,14 +1,20 @@
 import os
 import json
-from typing import List, Dict
+
+# faiss and torch each bundle OpenMP; multithreading both segfaults on macOS
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+from typing import List, Dict, Optional
 import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # Enable MPS fallback for macOS
-EMBED_MODEL = "all-MiniLM-L6-v2"
-EMBED_DIM = 384
+EMBED_MODEL = "BAAI/bge-m3"
+EMBED_DIM = 1024
 LLM_MODEL = "gpt-4o-mini"
 INDEX_PATH = "data/faiss.index"
 META_PATH = "data/meta.json"
@@ -21,8 +27,8 @@ Do not speculate beyond what the sources state. Be concise and precise."""
 class RAGPipeline:
     def __init__(self):
         self.embedder = SentenceTransformer(EMBED_MODEL)
-        self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-        self.index = None
+        self.client = wrap_openai(OpenAI(api_key=os.environ["OPENAI_API_KEY"]))
+        self.index: faiss.Index = faiss.IndexFlatIP(EMBED_DIM)
         self.metadata: List[Dict] = []
         self._load_or_init_index()
 
@@ -31,6 +37,11 @@ class RAGPipeline:
     def _load_or_init_index(self):
         if os.path.exists(INDEX_PATH) and os.path.exists(META_PATH):
             self.index = faiss.read_index(INDEX_PATH)
+            if self.index.d != EMBED_DIM:
+                raise RuntimeError(
+                    f"Index dimension {self.index.d} != {EMBED_DIM} for {EMBED_MODEL}. "
+                    "Rebuild it with: python -m utils.reindex"
+                )
             with open(META_PATH) as f:
                 self.metadata = json.load(f)
             print(f"[RAG] Loaded index with {len(self.metadata)} chunks.")
@@ -65,6 +76,23 @@ class RAGPipeline:
         self._save_index()
         return len(records)
 
+    def rebuild(self, records: List[Dict]) -> int:
+        """Re-embed `records` into a fresh index (use after changing the embedding model)."""
+        self.index = faiss.IndexFlatIP(EMBED_DIM)
+        self.metadata = []
+        if records:
+            self.index.add(self._embed([r["text"] for r in records]))
+            self.metadata = list(records)
+        self._save_index()
+        return len(self.metadata)
+
+    def replace_sources(self, records: List[Dict]) -> int:
+        """Add `records`, first dropping existing chunks from the same sources (no duplicates)."""
+        sources = {r["source"] for r in records}
+        kept = [m for m in self.metadata if m.get("source") not in sources]
+        self.rebuild(kept + list(records))
+        return len(records)
+
     # ── Retrieval ─────────────────────────────────────────────────────────────
 
     def retrieve(self, query: str, top_k: int = 5) -> List[Dict]:
@@ -83,7 +111,7 @@ class RAGPipeline:
 
     # ── Generation ────────────────────────────────────────────────────────────
 
-    def generate(self, query: str, chunks: List[Dict], language: str = None) -> str:
+    def generate(self, query: str, chunks: List[Dict], language: Optional[str] = None) -> str:
         if not chunks:
             return "I could not find relevant information in the knowledge base to answer this question."
 

@@ -1,15 +1,23 @@
+import os
+
+# faiss and torch each bundle OpenMP; multithreading both segfaults on macOS
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
+
 from flask import Flask, request, jsonify, render_template
 from twilio.twiml.voice_response import VoiceResponse, Gather
 from twilio.twiml.messaging_response import MessagingResponse
 from openai import OpenAI
-import os
 from dotenv import load_dotenv
 import logging
 import json
 import phonenumbers
 from rag.pipeline import RAGPipeline
 from hallucination.scorer import HallucinationScorer
-import time
+from langsmith.wrappers import wrap_openai
+from graph import build_graph
+import hashlib
 
 load_dotenv()
 
@@ -55,8 +63,10 @@ def infer_country_code(number_e164: str) -> str:
         return "UNKNOWN"
 
 
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), max_retries=0)
+# wrap_openai is a no-op unless LANGSMITH_TRACING=true
+openai_client = wrap_openai(OpenAI(api_key=os.getenv("OPENAI_API_KEY"), max_retries=0))
 USER_LANG_PREF = {}
+CHAT_MODEL = "gpt-4o-mini"
 
 #Prompts
 
@@ -141,7 +151,7 @@ def classify_message(user_input, country="UNKNOWN"):
     """
     try:
         response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=CHAT_MODEL,
             messages=[
                 {"role": "system", "content": CLASSIFIER_PROMPT},
                 {"role": "user", "content": f"[Caller country: {country}]\n{user_input}"}
@@ -186,7 +196,7 @@ def generate_emergency_response(user_input, language):
     try:
         prompt = EMERGENCY_RESPONSE_PROMPT.format(user_input=user_input, language=language)
         response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model=CHAT_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=80,
             temperature=0
@@ -201,63 +211,32 @@ def generate_emergency_response(user_input, language):
         # Hardcoded fallback
         return "⚠️ This sounds like an emergency. Please call your local emergency number or go to the nearest hospital immediately."
 
-def generate_rag_response(user_input, country="UNKNOWN", user_id=None, preferred_lang=None):
-    """RAG-grounded health response with hallucination scoring"""
-    t0 = time.time()
-    chunks = rag.retrieve(user_input, top_k=5)
-    print(f"Retrieved {len(chunks)} chunks in {time.time() - t0:.2f}s")
-    
-    t1 = time.time()
-    answer = rag.generate(user_input, chunks, language=preferred_lang)
-    print(f"Generated answer in {time.time() - t1:.2f}s")
-
-    t2 = time.time()
-    score_result = scorer.score(answer, chunks)
-    print(f"Scored hallucination risk in {time.time() - t2:.2f}s")
-
-    if score_result["label"] == "HIGH":
-        logger.warning(f"HIGH hallucination risk | country={country} | query={user_input[:80]}")
-        answer += "\n\n Note: I recommend confirming this with a healthcare provider"
-
-    return answer, score_result
+def user_key(user_id):
+    """Opaque per-user key, so phone numbers never reach the graph state (and LangSmith traces)."""
+    if not user_id:
+        return None
+    return hashlib.sha256(user_id.encode()).hexdigest()[:16]
 
 
-def generate_ai_response(user_input, country="UNKNOWN", user_id = None):
-    """Main entry point. Classifies then responds appropriately."""
+graph = build_graph(
+    classify=lambda *a, **k: classify_message(*a, **k),
+    emergency=lambda *a, **k: generate_emergency_response(*a, **k),
+    rag=rag,
+    scorer=scorer,
+    lang_pref=USER_LANG_PREF,
+)
+
+
+def generate_ai_response(user_input, country="UNKNOWN", user_id=None):
+    """Main entry point. Runs the LangGraph pipeline: classify, route, then answer."""
     try:
-        # Step 1: Classify (handles emergency, language, and topic in one call)
-        classification = classify_message(user_input, country=country)
-
-        # Step 2: If user is setting a preferred language
-        if classification.get("intent") == "set_language":
-            requested = (classification.get("requested_language") or "").strip()
-            if requested and user_id:
-                USER_LANG_PREF[user_id] = requested
-                return f"Okay. I will reply in {requested}. Now ask your health question."
-            return "Okay. Tell me your health question, and I will reply in that language."
-
-        # Step 3: Emergency takes priority
-        if classification["is_emergency"]:
-            return generate_emergency_response(user_input, classification.get("language_name", "Unknown"))
-
-        # Step 4: If we can't understand the message OR we can't confidently identify the language,
-        if (not classification.get("is_understandable", True)) and (classification.get("language_confidence", 1.0) < 0.7):
-            return (
-                    "I didn’t understand your message clearly. Please retype your health question in your preferred language, "
-                    "or tell me the language name you want me to use."
-                    )
-
-        # Step 5: Off-topic refusal
-        if not classification["is_health"]:
-            return classification["refusal_message"] or "I can only help with health and medical questions."
-
-        # Step 6: Generate health response
-        preferred = USER_LANG_PREF.get(user_id) if user_id else None
-        answer, score_result = generate_rag_response(
-            user_input, country=country, user_id=user_id, preferred_lang=preferred
-            )
-        
-        return answer
+        state = graph.invoke(
+            {"user_input": user_input, "country": country, "user_key": user_key(user_id)},
+            config={"run_name": "healthvoice", "metadata": {"country": country}},
+        )
+        if state.get("score_result", {}).get("label") == "HIGH":
+            logger.warning(f"HIGH hallucination risk | country={country}")
+        return state["answer"]
 
     except Exception as e:
         logger.error(f"Error generating AI response: {str(e)}")

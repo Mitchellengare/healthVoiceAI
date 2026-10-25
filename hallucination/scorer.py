@@ -38,10 +38,11 @@ class HallucinationScorer:
 
         for sent in sentences:
             nli_score = self._nli_score(sent, context)
-            nsp_score = self._nsp_score(context, sent) if USE_NSP else 0.5
-
-            # NLI is primary, NSP is secondary signal
-            combined = 0.7 * nli_score + 0.3 * nsp_score
+            if USE_NSP:
+                # NLI is primary, NSP is secondary signal
+                combined = 0.7 * nli_score + 0.3 * self._nsp_score(context, sent)
+            else:
+                combined = nli_score
             sentence_scores.append(combined)
             if combined > THRESHOLDS["LOW"]:
                 flagged.append({"sentence": sent, "score": round(combined, 3)})
@@ -65,8 +66,10 @@ class HallucinationScorer:
             truncation=True,
             max_length=512,
         )
-        label = result[0]["label"].upper()
-        conf = result[0]["score"]
+        if isinstance(result, list):
+            result = result[0]
+        label = result["label"].upper()
+        conf = result["score"]
 
         if label == "ENTAILMENT":
             return 1.0 - conf

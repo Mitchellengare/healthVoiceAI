@@ -40,20 +40,29 @@ def fetch_abstracts(pmids: list[str]) -> list[dict]:
     records = []
     for article in root.findall(".//PubmedArticle"):
         pmid_el = article.find(".//PMID")
-        abstract_el = article.find(".//AbstractText")
         title_el = article.find(".//ArticleTitle")
- 
-        if abstract_el is None or not abstract_el.text:
+
+        # Structured abstracts have several <AbstractText> sections, and inline tags
+        # (<i>, <sup>) split .text, so join every section with itertext().
+        sections = []
+        for el in article.findall(".//Abstract/AbstractText"):
+            body = "".join(el.itertext()).strip()
+            if not body:
+                continue
+            label = el.get("Label")
+            sections.append(f"{label.capitalize()}: {body}" if label else body)
+
+        if not sections:
             continue
- 
+
         records.append({
-            "text": abstract_el.text.strip(),
+            "text": " ".join(sections),
             "source": f"PubMed:{pmid_el.text}" if pmid_el is not None else "PubMed",
-            "title": title_el.text if title_el is not None else "",
+            "title": "".join(title_el.itertext()) if title_el is not None else "",
         })
     return records
- 
- 
+
+
 def chunk_text(text: str, chunk_size: int = 300, overlap: int = 50) -> list[str]:
     """Sliding window chunker — keeps context across chunk boundaries."""
     words = text.split()
@@ -83,12 +92,12 @@ def main():
     all_chunks = []
     for rec in abstracts:
         for chunk in chunk_text(rec["text"]):
-            all_chunks.append({"text": chunk, "source": rec["source"]})
+            all_chunks.append({"text": chunk, "source": rec["source"], "title": rec["title"]})
  
     print(f"[PubMed] Ingesting {len(all_chunks)} chunks into vector store...")
     rag = RAGPipeline()
-    n = rag.ingest(all_chunks)
-    print(f"[PubMed] Done. {n} chunks indexed.")
+    n = rag.replace_sources(all_chunks)
+    print(f"[PubMed] Done. {n} chunks added; index now has {len(rag.metadata)} chunks.")
  
  
 if __name__ == "__main__":

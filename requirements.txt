@@ -11,3 +11,5 @@ torch
 numpy
 requests
 phonenumbers
+langgraph
+langsmith
