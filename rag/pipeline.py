@@ -6,6 +6,7 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"  # Enable MPS fallback for macOS
 EMBED_MODEL = "all-MiniLM-L6-v2"
 EMBED_DIM = 384
 LLM_MODEL = "gpt-4o-mini"
@@ -82,7 +83,7 @@ class RAGPipeline:
 
     # ── Generation ────────────────────────────────────────────────────────────
 
-    def generate(self, query: str, chunks: List[Dict]) -> str:
+    def generate(self, query: str, chunks: List[Dict], language: str = None) -> str:
         if not chunks:
             return "I could not find relevant information in the knowledge base to answer this question."
 
@@ -91,11 +92,16 @@ class RAGPipeline:
             for i, c in enumerate(chunks)
         )
         user_msg = f"Context:\n{context}\n\nQuestion: {query}"
+        system = SYSTEM_PROMPT
+        if language:
+            system += f"\nWrite your entire answer in {language}."
+        else:
+            system += "\nAnswer in the same language as the question."
 
         response = self.client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system},
                 {"role": "user", "content": user_msg},
             ],
             temperature=0.1,

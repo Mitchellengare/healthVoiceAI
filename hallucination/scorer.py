@@ -9,7 +9,7 @@ import torch
 
 NLI_MODEL = "cross-encoder/nli-MiniLM2-L6-H768"
 NSP_MODEL = "bert-base-uncased"
-USE_NSP = True
+USE_NSP = False
 
 THRESHOLDS = {"LOW": 0.35, "HIGH": 0.65}  # hallucination score boundaries
 
@@ -17,12 +17,13 @@ THRESHOLDS = {"LOW": 0.35, "HIGH": 0.65}  # hallucination score boundaries
 class HallucinationScorer:
     def __init__(self):
         print("[Hallucination] Loading NLI model...")
-        self.nli = pipeline("text-classification", model=NLI_MODEL, device=-1)
+        self.nli = pipeline("text-classification", model=NLI_MODEL, device="cpu")
 
         if USE_NSP:
             print("[Hallucination] Loading NSP model...")
             self.nsp_tokenizer = AutoTokenizer.from_pretrained(NSP_MODEL)
             self.nsp_model = AutoModelForNextSentencePrediction.from_pretrained(NSP_MODEL)
+            self.nsp_model = self.nsp_model.to("cpu")
             self.nsp_model.eval()
 
     def score(self, answer: str, chunks: List[Dict]) -> Dict:
@@ -60,7 +61,7 @@ class HallucinationScorer:
         NLI labels: ENTAILMENT -> faithful, CONTRADICTION -> hallucinated, NEUTRAL -> uncertain.
         """
         result = self.nli(
-            f"{premise[:512]} [SEP] {hypothesis}",
+            {"text": premise, "text_pair": hypothesis},
             truncation=True,
             max_length=512,
         )
@@ -87,6 +88,7 @@ class HallucinationScorer:
                 truncation=True,
                 max_length=512,
             )
+            inputs = {k: v.to("cpu") for k, v in inputs.items()}
             with torch.no_grad():
                 logits = self.nsp_model(**inputs).logits
             probs = torch.softmax(logits, dim=1)

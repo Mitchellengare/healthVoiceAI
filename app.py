@@ -9,6 +9,7 @@ import json
 import phonenumbers
 from rag.pipeline import RAGPipeline
 from hallucination.scorer import HallucinationScorer
+import time
 
 load_dotenv()
 
@@ -61,10 +62,11 @@ USER_LANG_PREF = {}
 
 CLASSIFIER_PROMPT = """You are a classifier for a health education service used across Africa.
 
-Given a user message, do THREE things:
+Given a user message, do FOUR things:
 1. Detect if it is health/medical related (true) or not (false).
 2. Detect if it describes an emergency (life-threatening situation).
-3. If NOT health related, write a short polite refusal IN THE EXACT SAME LANGUAGE the user wrote in.
+3. Detect if the user is asking to change the language of replies (e.g. "reply in Swahili").
+4. If NOT health related, write a short polite refusal IN THE EXACT SAME LANGUAGE the user wrote in.
 
 An emergency includes: chest pain, difficulty breathing, severe bleeding, loss of consciousness, 
 stroke symptoms, poisoning, severe injury, suicidal intent — in ANY language.
@@ -80,6 +82,8 @@ Respond ONLY in this exact JSON format:
   "is_health": true or false,
   "is_emergency": true or false,
   "is_understandable": true or false,
+  "intent": "set_language if the user only asks to change reply language, otherwise ask",
+  "requested_language": "language name in English if intent is set_language, otherwise null",
   "language_code": "ISO 639-3 if possible (e.g., 'guz', 'rw', 'yo', 'ig', 'ha'); otherwise 'unknown'",
   "language_name": "language name in English or 'Unknown'",
   "language_confidence": 0.0 to 1.0,
@@ -155,6 +159,8 @@ def classify_message(user_input, country="UNKNOWN"):
             "is_health": result.get("is_health", False),
             "is_emergency": result.get("is_emergency", False),
             "is_understandable": result.get("is_understandable", True),
+            "intent": result.get("intent", "ask"),
+            "requested_language": result.get("requested_language"),
             "language_code": result.get("language_code", "unknown"),
             "language_name": result.get("language_name", "Unknown"),
             "language_confidence": float(result.get("language_confidence", 0.0)),
@@ -167,6 +173,8 @@ def classify_message(user_input, country="UNKNOWN"):
                 "is_health": False,
                 "is_emergency": False,
                 "is_understandable": True,
+                "intent": "ask",
+                "requested_language": None,
                 "language_code": "unknown",
                 "language_name": "Unknown",
                 "language_confidence": 0.0,
@@ -195,9 +203,17 @@ def generate_emergency_response(user_input, language):
 
 def generate_rag_response(user_input, country="UNKNOWN", user_id=None, preferred_lang=None):
     """RAG-grounded health response with hallucination scoring"""
+    t0 = time.time()
     chunks = rag.retrieve(user_input, top_k=5)
-    answer = rag.generate(user_input, chunks)
+    print(f"Retrieved {len(chunks)} chunks in {time.time() - t0:.2f}s")
+    
+    t1 = time.time()
+    answer = rag.generate(user_input, chunks, language=preferred_lang)
+    print(f"Generated answer in {time.time() - t1:.2f}s")
+
+    t2 = time.time()
     score_result = scorer.score(answer, chunks)
+    print(f"Scored hallucination risk in {time.time() - t2:.2f}s")
 
     if score_result["label"] == "HIGH":
         logger.warning(f"HIGH hallucination risk | country={country} | query={user_input[:80]}")
@@ -277,7 +293,7 @@ def voice():
 
     gather = Gather(
         input='speech',
-        action='/voice/process',
+        action=f'/voice/process?country={country}',
         method='POST',
         speechTimeout='auto',
         language='en-US',  # Twilio will attempt to transcribe; swap for user's language if known
@@ -335,7 +351,7 @@ def voice_continue():
     return str(response)
 
 
-@app.route('/voice/end')
+@app.route('/voice/end', methods=['GET', 'POST'])
 def voice_end():
     response = VoiceResponse()
     response.say("Thank you for using HealthVoice AI. Goodbye!", voice='alice')
@@ -378,7 +394,8 @@ def api_ask():
     if not question:
         return jsonify({"error": "Missing 'question'"}), 400
 
-    answer = generate_ai_response(question)
+    user_id = data.get("user_id")
+    answer = generate_ai_response(question, user_id=user_id)
     return jsonify({"question": question, "answer": answer})
 
 
@@ -393,4 +410,4 @@ def ingest():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=os.getenv('DEBUG', 'False') == 'True')
+    app.run(host='0.0.0.0', port=port, debug=False, threaded= True)
